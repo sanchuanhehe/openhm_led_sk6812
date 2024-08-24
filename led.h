@@ -29,7 +29,7 @@ typedef struct {
   uint8_t length;
   pin_t pin;
   spi_bus_t bus;
-} led_data_t, *led_data_p;
+} __attribute__((packed)) led_data_t, *led_data_p;
 
 #define LED_DATE_LEN 3 ///< 一个 LED 的数据长度（即3个字节，GRB顺序）
 

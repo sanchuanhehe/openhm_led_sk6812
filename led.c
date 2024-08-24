@@ -112,7 +112,6 @@ app_spi_master_init_config(spi_bus_t bus) {
   config.tmod = SPI_TMOD;
   config.sste = 1;
 
-  ext_config.qspi_param.wait_cycles = SPI_WAIT_CYCLES; // TODO: what is this?
   errcode_t ret;
 #ifdef dma_enable
   ext_config.tx_use_dma = true;

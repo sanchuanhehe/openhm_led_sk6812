@@ -9,6 +9,8 @@
 #include "led.h"
 #include "common_def.h"
 #include "dma.h"
+#include "gpio.h"
+#include "hal_gpio.h"
 #include "osal_debug.h"
 #include "osal_task.h"
 #include "pinctrl.h"
@@ -57,8 +59,14 @@ void encode_led_data(grb_t *input_data, uint8_t *output_data, uint32_t length) {
 #endif
 }
 
-static inline void app_spi_init_pin(pin_t pin, spi_bus_t bus) {// TODO: 增加防止重复初始化的逻辑
+static inline void
+app_spi_init_pin(pin_t pin, spi_bus_t bus) { // TODO: 增加防止重复初始化的逻辑
   errcode_t ret;
+  // 发送reset信号
+  // uapi_pin_set_mode(pin, HAL_PIO_FUNC_GPIO);
+  // uapi_gpio_set_dir(pin, GPIO_DIRECTION_OUTPUT);
+  // uapi_gpio_set_val(pin, GPIO_LEVEL_LOW);
+  // osal_udelay(100);
 #ifdef debug
   osal_printk("spi%d pinmux start!\r\n", bus); // TODO:debug
 #endif
@@ -162,9 +170,6 @@ void *spi_led_transfer_task(led_data_p arg) {
     return NULL;
   }
 
-  /* SPI pinmux. */
-  app_spi_init_pin(arg->pin, arg->bus);
-
   /* SPI master init config. */
   app_spi_master_init_config(arg->bus);
 
@@ -179,11 +184,23 @@ void *spi_led_transfer_task(led_data_p arg) {
       .tx_buff = tx_data,
       .tx_bytes = SPI_TRANSFER_LEN,
   };
+  // 复位信号
+  uint8_t tx_reset_data[80] = {0};
+  spi_xfer_data_t reset_data = {
+      .tx_buff = tx_reset_data,
+      .tx_bytes = 80,
+  };
 
   while (1) {
     osal_printk("spi%d master send start!\r\n", arg->bus);
+    /* SPI pinmux. */
+    app_spi_init_pin(arg->pin, arg->bus);
+    uapi_spi_master_write(arg->bus, &reset_data, 0xFFFFFFFF);
     if (uapi_spi_master_write(arg->bus, &data, 0xFFFFFFFF) == ERRCODE_SUCC) {
       osal_printk("spi%d master send succ!\r\n", arg->bus);
+      uapi_pin_set_mode(arg->pin, HAL_PIO_FUNC_GPIO);
+      uapi_gpio_set_dir(arg->pin, GPIO_DIRECTION_OUTPUT);
+      uapi_gpio_set_val(arg->pin, GPIO_LEVEL_LOW);
       break;
     } else {
 #ifdef debug
@@ -193,6 +210,5 @@ void *spi_led_transfer_task(led_data_p arg) {
     }
   }
   osal_kfree(tx_data);
-  uapi_pin_set_mode(arg->pin, HAL_PIO_FUNC_GPIO);
   return NULL;
 }
